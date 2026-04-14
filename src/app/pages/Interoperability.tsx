@@ -1,109 +1,55 @@
-import { Activity, Download, Lock, FileText, CheckCircle2, ShieldCheck, Building2, Stethoscope, FileJson } from "lucide-react";
+import { patientConsultations, patientPrescriptions } from "../../data/mockData";
 
 export default function InteroperabilityView() {
-  const events = [
-    { 
-      date: "14 Abr 2026", 
-      title: "Análisis de Laboratorio Completo", 
-      center: "Laboratorio Central Córdoba",
-      code: "LOINC: 24323-8",
-      icon: Activity,
-      color: "text-purple-600",
-      bg: "bg-purple-100",
-      centerIcon: Building2
-    },
-    { 
-      date: "05 Abr 2026", 
-      title: "Radiografía de Tórax Frontal", 
-      center: "Hospital Aurelio Crespo",
-      code: "SNOMED CT: 399208008",
-      icon: FileText,
-      color: "text-blue-600",
-      bg: "bg-blue-100",
-      centerIcon: Building2
-    },
-    { 
-      date: "12 Mar 2026", 
-      title: "Consulta Cardiológica", 
-      center: "Clínica Cruz del Eje",
-      code: "ICD-10: I10 (Hipertensión)",
-      icon: Stethoscope,
-      color: "text-emerald-600",
-      bg: "bg-emerald-100",
-      centerIcon: Building2
-    }
-  ];
-
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      
-      {/* Encabezado */}
-      <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <h2 className="text-2xl font-bold text-gray-900">Historial Clínico Compartido</h2>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-              Estándar HL7 / FHIR
-            </span>
-          </div>
-          <p className="text-gray-500">Visualización de la historia clínica interoperable del paciente Juan Pérez.</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="inline-flex items-center px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 font-medium text-sm">
-            <Lock className="mr-2 h-4 w-4 text-emerald-500" />
-            Datos Encriptados de Punto a Punto
-          </div>
-          <button className="inline-flex justify-center items-center px-4 py-2.5 rounded-xl bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 transition-colors shadow-sm">
-            <FileJson className="mr-2 h-4 w-4" />
-            Exportar en Formato FHIR
-          </button>
-        </div>
+    <div className="space-y-8 text-gray-900 dark:text-slate-100">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Historia Interoperable</h2>
+        <p className="mt-1 text-gray-500 dark:text-slate-300">Recetas digitales y consultas medicas compartidas del paciente.</p>
       </div>
 
-      {/* Línea de Tiempo */}
-      <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm relative overflow-hidden">
-        
-        {/* Decorative background standard logo watermark */}
-        <div className="absolute -right-10 -top-10 text-gray-50 opacity-50 pointer-events-none">
-          <ShieldCheck className="h-64 w-64" />
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">Recetas Digitales Vigentes</h3>
+          <span className="text-xs rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">{patientPrescriptions.length} activas</span>
         </div>
-
-        <div className="relative border-l-2 border-gray-100 ml-4 space-y-12 pb-4">
-          {events.map((event, index) => (
-            <div key={index} className="relative pl-8 sm:pl-12 group">
-              {/* Timeline dot */}
-              <span className={`absolute -left-[17px] top-1 h-8 w-8 rounded-full border-4 border-white shadow-sm flex items-center justify-center ${event.bg}`}>
-                <event.icon className={`h-4 w-4 ${event.color}`} />
-              </span>
-
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative z-10">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-                  <div className="inline-flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 w-fit">
-                    <event.centerIcon className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-semibold text-gray-700">{event.center}</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-500 bg-gray-50 px-2 py-1 rounded-md">{event.date}</span>
+        <div className="space-y-3">
+          {patientPrescriptions.map((item) => (
+            <div key={item.id} className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-slate-100">{item.medicamento}</p>
+                  <p className="text-sm text-gray-600 dark:text-slate-300">Profesional: {item.profesional}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">Fecha: {item.fecha}</p>
                 </div>
-
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{event.title}</h3>
-                
-                <div className="flex items-center text-sm font-mono text-blue-600 bg-blue-50 px-3 py-2 rounded-lg w-fit border border-blue-100 mt-4">
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Terminología mapeada: {event.code}
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">{item.estado}</span>
+                  <button className="rounded-lg border border-blue-300 dark:border-blue-500 px-3 py-1.5 text-sm font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40">
+                    Ver QR/Descargar
+                  </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
-        
-        <div className="mt-8 text-center">
-          <button className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
-            Cargar eventos anteriores (Bus de Interoperabilidad)
-          </button>
-        </div>
-      </div>
+      </section>
 
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">Historial de Consultas Medicas</h3>
+          <span className="text-xs rounded-full bg-gray-100 dark:bg-slate-900 px-2.5 py-1 font-semibold text-gray-600 dark:text-slate-300">Interoperable</span>
+        </div>
+        <div className="space-y-3">
+          {patientConsultations.map((item) => (
+            <div key={item.id} className="rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-900/60 p-4">
+              <p className="text-sm text-gray-500 dark:text-slate-400">{item.fecha}</p>
+              <p className="font-semibold text-gray-900 dark:text-slate-100 mt-1">{item.especialidad}</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300">{item.profesional}</p>
+              <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">Diagnostico: {item.diagnosticoBreve}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

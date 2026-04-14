@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import PatientDashboard from "./pages/PatientDashboard";
 import ProfessionalDashboard from "./pages/ProfessionalDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import DevAdminDashboard from "./pages/DevAdminDashboard";
 import InteroperabilityView from "./pages/Interoperability";
 import DicomViewer from "./pages/DicomViewer";
 import ChatbotConfig from "./pages/ChatbotConfig";
@@ -25,7 +26,8 @@ export const router = createBrowserRouter([
     children: [
       { path: "patient", Component: PatientDashboard },
       { path: "professional", Component: ProfessionalDashboard },
-      { path: "admin", Component: AdminDashboard },
+      { path: "center", Component: AdminDashboard },
+      { path: "admin", Component: DevAdminDashboard },
       { path: "interoperability", Component: InteroperabilityView },
       { path: "dicom", Component: DicomViewer },
       { path: "chatbot", Component: ChatbotConfig },

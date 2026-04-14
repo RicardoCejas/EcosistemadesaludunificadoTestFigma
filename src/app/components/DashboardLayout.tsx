@@ -1,150 +1,166 @@
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router";
-import { 
-  LogOut, 
-  Activity, 
-  User, 
-  Calendar as CalendarIcon, 
-  FileText, 
-  Settings, 
-  Stethoscope, 
-  Users,
-  CreditCard,
-  Bell,
-  LayoutDashboard,
-  MessageCircle,
-  Network
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import Navbar from "../../components/Navbar";
+import Sidebar from "../../components/Sidebar";
+import MobileMenu from "../../components/MobileMenu";
+import PatientDashboard from "../../components/PatientDashboard";
+import DoctorDashboard from "../../components/DoctorDashboard";
+import AdminDashboard from "../../components/AdminDashboard";
+import DicomVisor from "../../components/DicomVisor";
+import CenterDashboard from "../pages/AdminDashboard";
+import InteroperabilityView from "../pages/Interoperability";
+import ChatbotConfig from "../pages/ChatbotConfig";
+import { AppRole, DemoView, useAppContext } from "../../context/AppContext";
 
 export default function DashboardLayout() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { role, setRole, currentView, setCurrentView, isDark, toggleTheme } = useAppContext();
   const path = location.pathname;
 
-  const isProfessional = path.includes('/professional');
-  const isAdmin = path.includes('/admin') || path.includes('/interoperability') || path.includes('/dicom') || path.includes('/chatbot');
+  const getRoleFromPath = (): AppRole => {
+    if (path.includes("/professional")) return "profesional";
+    if (path.includes("/center")) return "centro";
+    if (path.includes("/admin")) return "admin";
+    if (currentView === "medico") return "profesional";
+    if (currentView === "centro") return "centro";
+    if (currentView === "admin") return "admin";
+    return "paciente";
+  };
+
+  const mapPathToView = (): DemoView | null => {
+    if (path.includes("/professional")) return "medico";
+    if (path.includes("/center")) return "centro";
+    if (path.includes("/admin")) return "admin";
+    if (path.includes("/patient")) return "paciente";
+    return null;
+  };
+
+  useEffect(() => {
+    const pathRole = getRoleFromPath();
+    if (role !== pathRole) {
+      setRole(pathRole);
+    }
+
+    const pathView = mapPathToView();
+    if (pathView && currentView !== pathView) {
+      setCurrentView(pathView);
+    }
+  }, [path, role, currentView, setRole, setCurrentView]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [path]);
 
   const patientLinks = [
-    { to: "/dashboard/patient", icon: User, label: "Mi Panel" },
-    { to: "/dashboard/interoperability", icon: Network, label: "Historia Interoperable" },
-    { to: "/dashboard/dicom", icon: FileText, label: "Mis Imágenes (DICOM)" },
+    { to: "/dashboard/patient", label: "Mi Panel" },
+    { to: "/dashboard/interoperability", label: "Historia Interoperable" },
+    { to: "/dashboard/dicom", label: "Mis Imagenes (DICOM)" },
   ];
 
   const professionalLinks = [
-    { to: "/dashboard/professional", icon: Stethoscope, label: "Mi Panel" },
-    { to: "#agenda", icon: CalendarIcon, label: "Agenda Semanal" },
-    { to: "/dashboard/interoperability", icon: Network, label: "Bus Interoperabilidad" },
-    { to: "/dashboard/dicom", icon: FileText, label: "Visor DICOM" },
+    { to: "/dashboard/professional", label: "Mi Panel" },
+    { to: "/dashboard/interoperability", label: "Bus Interoperabilidad" },
+    { to: "/dashboard/dicom", label: "Visor DICOM" },
   ];
 
   const adminLinks = [
-    { to: "/dashboard/admin", icon: LayoutDashboard, label: "Panel de Métricas" },
-    { to: "/dashboard/interoperability", icon: Network, label: "Interoperabilidad HL7" },
-    { to: "/dashboard/chatbot", icon: MessageCircle, label: "Automatizaciones WA" },
-    { to: "/dashboard/dicom", icon: FileText, label: "Test Visor DICOM" },
+    { to: "/dashboard/admin", label: "Panel de Metricas" },
+    { to: "/dashboard/interoperability", label: "Interoperabilidad HL7" },
+    { to: "/dashboard/chatbot", label: "Automatizaciones WA" },
+    { to: "/dashboard/dicom", label: "Test Visor DICOM" },
   ];
 
-  const links = isAdmin ? adminLinks : isProfessional ? professionalLinks : patientLinks;
+  const centerLinks = [
+    { to: "/dashboard/center", label: "Gestion Institucional" },
+    { to: "/dashboard/interoperability", label: "Interoperabilidad" },
+    { to: "/dashboard/dicom", label: "Visor DICOM" },
+  ];
+
+  const links =
+    currentView === "admin"
+      ? adminLinks
+      : currentView === "centro"
+        ? centerLinks
+        : currentView === "medico"
+          ? professionalLinks
+          : patientLinks;
+
+  const handleViewChange = (view: DemoView, destination: string) => {
+    setCurrentView(view);
+    navigate(destination);
+  };
+
+  const handleLogout = () => {
+    setRole(null);
+    setCurrentView("paciente");
+    navigate("/");
+  };
 
   const getRoleTitle = () => {
-    if (isAdmin) return "Panel de Administración";
-    if (isProfessional) return "Panel del Profesional";
+    if (currentView === "admin") return "Panel de Administracion";
+    if (currentView === "centro") return "Centro de Salud";
+    if (currentView === "medico") return "Panel del Profesional";
     return "Portal del Paciente";
   };
 
   const getInitials = () => {
-    if (isAdmin) return "AD";
-    if (isProfessional) return "DR";
+    if (currentView === "admin") return "AD";
+    if (currentView === "centro") return "CS";
+    if (currentView === "medico") return "DR";
     return "JD";
   };
 
-  const handleLogout = () => {
-    navigate("/");
+  const renderCurrentView = () => {
+    if (path.includes("/interoperability")) return <InteroperabilityView />;
+    if (path.includes("/dicom")) return <DicomVisor />;
+    if (path.includes("/chatbot")) return <ChatbotConfig />;
+    if (currentView === "medico") return <DoctorDashboard />;
+    if (currentView === "centro") return <CenterDashboard />;
+    if (currentView === "admin") return <AdminDashboard />;
+    return <PatientDashboard />;
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col">
-        <div className="h-20 flex items-center px-6 border-b border-gray-200 cursor-pointer" onClick={() => navigate("/")}>
-          <div className="flex items-center space-x-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Activity className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-bold text-gray-900 truncate">
-              Salud Unificada
-            </span>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex transition-colors">
+      <Sidebar links={links} currentView={currentView} onViewChange={handleViewChange} onLogout={handleLogout} />
+      <MobileMenu
+        open={mobileMenuOpen}
+        links={links}
+        currentView={currentView}
+        onClose={() => setMobileMenuOpen(false)}
+        onViewChange={handleViewChange}
+        onLogout={handleLogout}
+      />
 
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-3">
-            Menú Principal
-          </div>
-          {links.map((link) => (
-            <NavLink
-              key={link.label}
-              to={link.to}
-              className={({ isActive }) =>
-                `flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-colors ${
-                  isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                }`
-              }
-            >
-              <link.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-              {link.label}
-            </NavLink>
-          ))}
-
-          {/* Quick Demo Switcher - Just to show all roles for the presentation */}
-          <div className="mt-12 pt-6 border-t border-gray-200">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-3">
-              Cambiar Vista (Demo)
-            </div>
-            <NavLink to="/dashboard/patient" className="flex items-center px-3 py-2 text-sm font-medium rounded-xl text-gray-600 hover:bg-gray-100">
-              <User className="mr-3 h-4 w-4" /> Vista Paciente
-            </NavLink>
-            <NavLink to="/dashboard/professional" className="flex items-center px-3 py-2 text-sm font-medium rounded-xl text-gray-600 hover:bg-gray-100">
-              <Stethoscope className="mr-3 h-4 w-4" /> Vista Médico
-            </NavLink>
-            <NavLink to="/dashboard/admin" className="flex items-center px-3 py-2 text-sm font-medium rounded-xl text-gray-600 hover:bg-gray-100">
-              <Settings className="mr-3 h-4 w-4" /> Vista Administrador
-            </NavLink>
-          </div>
-        </nav>
-
-        <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="flex items-center w-full px-3 py-3 text-sm font-medium text-red-600 rounded-xl hover:bg-red-50 transition-colors"
-          >
-            <LogOut className="mr-3 h-5 w-5" />
-            Cerrar Sesión
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-6 lg:px-8">
-          <h1 className="text-xl font-semibold text-gray-800">
-            {getRoleTitle()}
-          </h1>
-          <div className="flex items-center space-x-4">
-            <button className="p-2 text-gray-400 hover:text-gray-500 rounded-full hover:bg-gray-100 transition-colors">
-              <Bell className="h-6 w-6" />
-            </button>
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold border border-blue-200">
-                {getInitials()}
-              </div>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto bg-slate-50/50 p-6 lg:p-8">
+        <Navbar
+          title={getRoleTitle()}
+          initials={getInitials()}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+          showMenuButton
+          onMenuClick={() => setMobileMenuOpen(true)}
+        />
+
+        <main className="flex-1 overflow-auto bg-slate-50/50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 transition-colors">
           <div className="max-w-6xl mx-auto">
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${currentView}-${path}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.24, ease: "easeOut" }}
+              >
+                {renderCurrentView()}
+              </motion.div>
+            </AnimatePresence>
+            <div className="hidden">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>
