@@ -13,6 +13,13 @@ export const specialties = [
   "Ginecologia",
   "Dermatologia",
   "Nutricion",
+  "Endocrinologia",
+  "Neumonologia",
+  "Oftalmologia",
+  "Otorrinolaringologia",
+  "Urologia",
+  "Gastroenterologia",
+  "Psicologia",
 ];
 
 const fechasBase = [
@@ -29,80 +36,60 @@ const createAvailability = (hourGroups) =>
     horarios: hourGroups[index] || hourGroups[0] || ["08:00", "08:30", "09:00"],
   }));
 
-export const professionals = [
-  {
-    id: 1,
-    nombre: "Dra. Sofia Ruiz",
-    especialidad: "Cardiologia",
-    matricula: "MP-4202",
-    centerID: "center-1",
-    centro_asociado: "Hospital Aurelio Crespo",
-    disponibilidad: createAvailability([["10:00", "10:30"], ["11:00", "11:30"], ["18:00", "18:30"]]),
-  },
-  {
-    id: 2,
-    nombre: "Dr. Lucas Torres",
-    especialidad: "Ginecologia",
-    matricula: "MP-4701",
-    centerID: "center-2",
-    centro_asociado: "Clinica Cruz del Eje",
-    disponibilidad: createAvailability([["09:00", "09:30"], ["12:00", "12:30"], ["16:00", "16:30"]]),
-  },
-  {
-    id: 3,
-    nombre: "Dra. Martina Flores",
-    especialidad: "Clinica Medica",
-    matricula: "MP-4105",
-    centerID: "center-1",
-    centro_asociado: "Hospital Aurelio Crespo",
-    disponibilidad: createAvailability([["08:00", "08:30"], ["14:00", "14:30"], ["15:30", "16:00"]]),
-  },
-  {
-    id: 4,
-    nombre: "Dr. Julian Castro",
-    especialidad: "Traumatologia",
-    matricula: "MP-4410",
-    centerID: "center-2",
-    centro_asociado: "Clinica Cruz del Eje",
-    disponibilidad: createAvailability([["09:30", "10:00"], ["11:30", "12:00"], ["17:00", "17:30"]]),
-  },
-  {
-    id: 5,
-    nombre: "Dra. Camila Peralta",
-    especialidad: "Dermatologia",
-    matricula: "MP-5202",
-    centerID: "center-3",
-    centro_asociado: "Sanatorio Santa Isabel",
-    disponibilidad: createAvailability([["08:30", "09:00"], ["13:00", "13:30"], ["18:00", "18:30"]]),
-  },
-  {
-    id: 6,
-    nombre: "Dr. Tomas Aguero",
-    especialidad: "Nutricion",
-    matricula: "MP-5501",
-    centerID: "center-3",
-    centro_asociado: "Sanatorio Santa Isabel",
-    disponibilidad: createAvailability([["10:30", "11:00"], ["14:00", "14:30"], ["17:00", "17:30"]]),
-  },
-  {
-    id: 7,
-    nombre: "Dra. Florencia Navarro",
-    especialidad: "Neurologia",
-    matricula: "MP-4602",
-    centerID: "center-1",
-    centro_asociado: "Hospital Aurelio Crespo",
-    disponibilidad: createAvailability([["09:30", "10:00"], ["11:30", "12:00"], ["16:30", "17:00"]]),
-  },
-  {
-    id: 8,
-    nombre: "Dr. Franco Ledesma",
-    especialidad: "Pediatria",
-    matricula: "MP-4901",
-    centerID: "center-2",
-    centro_asociado: "Clinica Cruz del Eje",
-    disponibilidad: createAvailability([["08:00", "08:30"], ["09:30", "10:00"], ["11:30", "12:00"]]),
-  },
+const centerNameById = centers.reduce((acc, center) => {
+  acc[center.id] = center.nombre;
+  return acc;
+}, {});
+
+const schedulePresets = [
+  [["08:00", "08:30", "09:00"], ["10:00", "10:30"], ["15:00", "15:30"], ["17:00", "17:30"]],
+  [["09:00", "09:30"], ["11:00", "11:30"], ["14:00", "14:30"], ["16:30", "17:00"]],
+  [["08:30", "09:00"], ["12:00", "12:30"], ["16:00", "16:30"], ["18:00", "18:30"]],
+  [["07:30", "08:00"], ["10:30", "11:00"], ["13:30", "14:00"], ["15:30", "16:00"]],
 ];
+
+const professionalSeeds = [
+  { nombre: "Dra. Martina Flores", especialidad: "Clinica Medica", centerID: "center-1" },
+  { nombre: "Dr. Marcos Salvatierra", especialidad: "Clinica Medica", centerID: "center-3" },
+  { nombre: "Dra. Sofia Ruiz", especialidad: "Cardiologia", centerID: "center-1" },
+  { nombre: "Dr. Nicolas Paredes", especialidad: "Cardiologia", centerID: "center-2" },
+  { nombre: "Dra. Agustina Vera", especialidad: "Pediatria", centerID: "center-1" },
+  { nombre: "Dr. Franco Ledesma", especialidad: "Pediatria", centerID: "center-2" },
+  { nombre: "Dra. Milagros Quiroga", especialidad: "Traumatologia", centerID: "center-2" },
+  { nombre: "Dr. Julian Castro", especialidad: "Traumatologia", centerID: "center-3" },
+  { nombre: "Dra. Florencia Navarro", especialidad: "Neurologia", centerID: "center-1" },
+  { nombre: "Dr. Emiliano Peirano", especialidad: "Neurologia", centerID: "center-3" },
+  { nombre: "Dra. Camila Lozano", especialidad: "Ginecologia", centerID: "center-2" },
+  { nombre: "Dr. Lucas Torres", especialidad: "Ginecologia", centerID: "center-1" },
+  { nombre: "Dra. Camila Peralta", especialidad: "Dermatologia", centerID: "center-3" },
+  { nombre: "Dr. Ivan Tissera", especialidad: "Dermatologia", centerID: "center-1" },
+  { nombre: "Dra. Paula Lagos", especialidad: "Nutricion", centerID: "center-2" },
+  { nombre: "Dr. Tomas Aguero", especialidad: "Nutricion", centerID: "center-3" },
+  { nombre: "Dra. Noelia Arce", especialidad: "Endocrinologia", centerID: "center-1" },
+  { nombre: "Dr. Matias Araya", especialidad: "Endocrinologia", centerID: "center-2" },
+  { nombre: "Dra. Cecilia Reinoso", especialidad: "Neumonologia", centerID: "center-3" },
+  { nombre: "Dr. Federico Escobar", especialidad: "Neumonologia", centerID: "center-1" },
+  { nombre: "Dra. Luciana Vivas", especialidad: "Oftalmologia", centerID: "center-2" },
+  { nombre: "Dr. Javier Becerra", especialidad: "Oftalmologia", centerID: "center-3" },
+  { nombre: "Dra. Rocio Mansilla", especialidad: "Otorrinolaringologia", centerID: "center-1" },
+  { nombre: "Dr. Leandro Villalba", especialidad: "Otorrinolaringologia", centerID: "center-2" },
+  { nombre: "Dra. Carina Pedraza", especialidad: "Urologia", centerID: "center-3" },
+  { nombre: "Dr. Santiago Coria", especialidad: "Urologia", centerID: "center-1" },
+  { nombre: "Dra. Irene Diaz", especialidad: "Gastroenterologia", centerID: "center-2" },
+  { nombre: "Dr. Bruno Barrera", especialidad: "Gastroenterologia", centerID: "center-3" },
+  { nombre: "Dra. Valentina Nuñez", especialidad: "Psicologia", centerID: "center-1" },
+  { nombre: "Dr. Gonzalo Santillan", especialidad: "Psicologia", centerID: "center-2" },
+];
+
+export const professionals = professionalSeeds.map((seed, index) => ({
+  id: index + 1,
+  nombre: seed.nombre,
+  especialidad: seed.especialidad,
+  matricula: `MP-${4200 + index}`,
+  centerID: seed.centerID,
+  centro_asociado: centerNameById[seed.centerID],
+  disponibilidad: createAvailability(schedulePresets[index % schedulePresets.length]),
+}));
 
 export const patientPrescriptions = [
   { id: "rx-1", medicamento: "Losartan 50mg", profesional: "Dra. Sofia Ruiz", fecha: "2026-04-10", estado: "Vigente" },

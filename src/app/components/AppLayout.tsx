@@ -1,9 +1,11 @@
-import { Outlet, Link } from "react-router";
+import { Outlet, Link, useLocation } from "react-router";
 import { Activity, Moon, Sun } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 
 export default function AppLayout() {
   const { isDark, toggleTheme } = useTheme();
+  const location = useLocation();
+  const isLanding = location.pathname === "/";
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans flex flex-col transition-colors">
@@ -39,18 +41,20 @@ export default function AppLayout() {
           </div>
         </div>
       </header>
-      <main className="flex-1">
+      <main className={isLanding ? "flex-1 overflow-hidden" : "flex-1"}>
         <Outlet />
       </main>
-      <footer className="bg-gray-900 dark:bg-black py-12 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center text-gray-400 dark:text-slate-400 gap-4">
-          <div className="flex items-center space-x-2">
-            <Activity className="h-5 w-5" />
-            <span className="font-semibold text-white">Salud Unificada Cruz del Eje</span>
+      {!isLanding && (
+        <footer className="bg-gray-900 dark:bg-black py-12 transition-colors">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center text-gray-400 dark:text-slate-400 gap-4">
+            <div className="flex items-center space-x-2">
+              <Activity className="h-5 w-5" />
+              <span className="font-semibold text-white">Salud Unificada Cruz del Eje</span>
+            </div>
+            <p className="text-sm">© 2026 Ecosistema de Salud. Todos los derechos reservados.</p>
           </div>
-          <p className="text-sm">© 2026 Ecosistema de Salud. Todos los derechos reservados.</p>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

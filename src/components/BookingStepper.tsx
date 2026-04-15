@@ -1,115 +1,256 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, Building2, CalendarDays, Clock3, ArrowLeft, UserCircle2, Stethoscope } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CalendarDays,
+  Clock3,
+  Search,
+  Stethoscope,
+  UserCircle2,
+  UserRoundCheck,
+} from "lucide-react";
 import { centers, professionals, specialties } from "../data/mockData";
 import { useAppContext } from "../context/AppContext";
 
-type Suggestion =
-  | { type: "professional"; professional: any }
-  | { type: "specialty"; specialty: string; professional: any };
+type Center = {
+  id: string;
+  nombre: string;
+  descripcion: string;
+};
+
+type Availability = {
+  fecha: string;
+  etiqueta: string;
+  horarios: string[];
+};
+
+type Professional = {
+  id: number;
+  nombre: string;
+  especialidad: string;
+  matricula: string;
+  centerID: string;
+  centro_asociado: string;
+  disponibilidad: Availability[];
+};
+
+type Suggestion = {
+  key: string;
+  type: "center" | "specialty" | "professional";
+  label: string;
+  description: string;
+  centerId: string;
+  specialty?: string;
+  professionalId?: number;
+};
+
+const stepLabels = ["Centro", "Especialidad", "Profesional", "Turno y datos"];
 
 export default function BookingStepper() {
   const { addAppointment } = useAppContext();
+  const centerList = centers as Center[];
+  const professionalsList = professionals as Professional[];
+  const specialtyList = specialties as string[];
+
   const [step, setStep] = useState(0);
   const [selectedCenterId, setSelectedCenterId] = useState("");
-  const [selectedCenterName, setSelectedCenterName] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
-  const [selectedProfessional, setSelectedProfessional] = useState<any | null>(null);
-
+  const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-
-  const [patientForm, setPatientForm] = useState({ nombre: "", dni: "", email: "" });
-
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [patientForm, setPatientForm] = useState({ nombre: "", dni: "", email: "" });
+  const [showModal, setShowModal] = useState(false);
 
-  const [step1Mode, setStep1Mode] = useState<"especialidad" | "profesional">("especialidad");
-  const [step1Query, setStep1Query] = useState("");
-
-  const stepLabels = ["Centros", "Especialidades", "Profesionales", "Turnos", "Datos Personales"];
-
-  const professionalsByCenter = useMemo(() => {
-    if (!selectedCenterId) {
-      return [];
-    }
-    return professionals.filter((person: any) => person.centerID === selectedCenterId);
-  }, [selectedCenterId]);
+  const selectedCenter = useMemo(
+    () => centerList.find((center) => center.id === selectedCenterId) || null,
+    [centerList, selectedCenterId],
+  );
 
   const specialtiesByCenter = useMemo(() => {
-    const values = professionalsByCenter.map((person: any) => person.especialidad);
-    return [...new Set(values)];
-  }, [professionalsByCenter]);
-
-  const filteredSpecialtiesInCenter = useMemo(() => {
-    const query = step1Query.toLowerCase();
-    return specialtiesByCenter.filter((item: string) => item.toLowerCase().includes(query));
-  }, [specialtiesByCenter, step1Query]);
-
-  const filteredProfessionalsInCenter = useMemo(() => {
-    const query = step1Query.toLowerCase();
-    return professionalsByCenter.filter(
-      (person: any) => person.nombre.toLowerCase().includes(query) || person.especialidad.toLowerCase().includes(query),
-    );
-  }, [professionalsByCenter, step1Query]);
+    return specialtyList.map((specialty) => ({
+      specialty,
+      count: professionalsList.filter(
+        (professional) => professional.centerID === selectedCenterId && professional.especialidad === specialty,
+      ).length,
+    }));
+  }, [professionalsList, selectedCenterId, specialtyList]);
 
   const availableProfessionals = useMemo(() => {
-    if (!selectedCenterId || !selectedSpecialty) {
-      return [];
-    }
-    return professionals.filter(
-      (person: any) => person.centerID === selectedCenterId && person.especialidad === selectedSpecialty,
+    return professionalsList.filter(
+      (professional) => professional.centerID === selectedCenterId && professional.especialidad === selectedSpecialty,
     );
-  }, [selectedCenterId, selectedSpecialty]);
+  }, [professionalsList, selectedCenterId, selectedSpecialty]);
 
   const selectedDateData = useMemo(() => {
     if (!selectedProfessional || !selectedDate) {
       return null;
     }
-    return selectedProfessional.disponibilidad.find((entry: any) => entry.fecha === selectedDate) || null;
-  }, [selectedProfessional, selectedDate]);
+    return selectedProfessional.disponibilidad.find((entry) => entry.fecha === selectedDate) || null;
+  }, [selectedDate, selectedProfessional]);
 
   const isFormValid =
-    patientForm.nombre.trim().length > 0 &&
-    patientForm.dni.trim().length > 0 &&
-    patientForm.email.trim().length > 0 &&
+    patientForm.nombre.trim().length > 2 &&
+    patientForm.dni.trim().length > 6 &&
+    patientForm.email.trim().length > 5 &&
     patientForm.email.includes("@") &&
     patientForm.email.includes(".");
 
+  const specialtySearchTargets = useMemo(() => {
+    const map = new Map<string, { centerId: string; centerName: string; specialty: string }>();
+    professionalsList.forEach((professional) => {
+      const key = `${professional.centerID}-${professional.especialidad}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          centerId: professional.centerID,
+          centerName: professional.centro_asociado,
+          specialty: professional.especialidad,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [professionalsList]);
+
   const suggestions = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) {
       return [] as Suggestion[];
     }
 
-    const professionalMatches: Suggestion[] = professionals
-      .filter((person: any) => person.nombre.toLowerCase().includes(query))
-      .slice(0, 6)
-      .map((person: any) => ({ type: "professional", professional: person }));
+    const centerSuggestions = centerList
+      .filter((center) => `${center.nombre} ${center.descripcion}`.toLowerCase().includes(normalized))
+      .map((center) => ({
+        key: `center-${center.id}`,
+        type: "center" as const,
+        label: center.nombre,
+        description: center.descripcion,
+        centerId: center.id,
+      }));
 
-    const specialtyMatches: Suggestion[] = specialties
-      .filter((specialty: string) => specialty.toLowerCase().includes(query))
-      .map((specialty: string) => {
-        const referenceProfessional = professionals.find((person: any) => person.especialidad === specialty) || professionals[0];
-        return { type: "specialty", specialty, professional: referenceProfessional } as Suggestion;
+    const specialtySuggestions = specialtySearchTargets
+      .filter((item) => item.specialty.toLowerCase().includes(normalized) || item.centerName.toLowerCase().includes(normalized))
+      .map((item) => ({
+        key: `specialty-${item.centerId}-${item.specialty}`,
+        type: "specialty" as const,
+        label: item.specialty,
+        description: item.centerName,
+        centerId: item.centerId,
+        specialty: item.specialty,
+      }));
+
+    const professionalSuggestions = professionalsList
+      .filter((professional) => {
+        return (
+          professional.nombre.toLowerCase().includes(normalized) ||
+          professional.especialidad.toLowerCase().includes(normalized) ||
+          professional.centro_asociado.toLowerCase().includes(normalized)
+        );
       })
-      .slice(0, 6);
+      .map((professional) => ({
+        key: `professional-${professional.id}`,
+        type: "professional" as const,
+        label: professional.nombre,
+        description: `${professional.especialidad} - ${professional.centro_asociado}`,
+        centerId: professional.centerID,
+        specialty: professional.especialidad,
+        professionalId: professional.id,
+      }));
 
-    return [...professionalMatches, ...specialtyMatches].slice(0, 8);
-  }, [searchQuery]);
+    return [...professionalSuggestions, ...specialtySuggestions, ...centerSuggestions].slice(0, 9);
+  }, [centerList, professionalsList, searchQuery, specialtySearchTargets]);
 
-  const goToStep = (nextStep: number) => {
-    setStep(nextStep);
+  const resetFromCenter = () => {
+    setSelectedSpecialty("");
+    setSelectedProfessional(null);
+    setSelectedDate("");
+    setSelectedTime("");
+    setPatientForm({ nombre: "", dni: "", email: "" });
+  };
+
+  const selectCenter = (center: Center) => {
+    setSelectedCenterId(center.id);
+    resetFromCenter();
+    setStep(1);
+  };
+
+  const selectSpecialty = (specialty: string) => {
+    setSelectedSpecialty(specialty);
+    setSelectedProfessional(null);
+    setSelectedDate("");
+    setSelectedTime("");
+    setStep(2);
+  };
+
+  const selectProfessional = (professional: Professional) => {
+    setSelectedProfessional(professional);
+    setSelectedDate("");
+    setSelectedTime("");
+    setStep(3);
+  };
+
+  const handleUniversalSelect = (suggestion: Suggestion) => {
+    const matchingCenter = centerList.find((center) => center.id === suggestion.centerId);
+    if (!matchingCenter) {
+      return;
+    }
+
+    setSelectedCenterId(matchingCenter.id);
+    setSearchQuery(suggestion.label);
+    setShowSuggestions(false);
+
+    if (suggestion.type === "center") {
+      resetFromCenter();
+      setStep(1);
+      return;
+    }
+
+    if (suggestion.specialty) {
+      setSelectedSpecialty(suggestion.specialty);
+    }
+
+    if (suggestion.type === "specialty") {
+      setSelectedProfessional(null);
+      setSelectedDate("");
+      setSelectedTime("");
+      setStep(2);
+      return;
+    }
+
+    if (suggestion.professionalId) {
+      const professional = professionalsList.find((person) => person.id === suggestion.professionalId) || null;
+      setSelectedProfessional(professional);
+      setSelectedDate("");
+      setSelectedTime("");
+      setStep(3);
+    }
   };
 
   const goBack = () => {
-    setStep((current) => Math.max(current - 1, 0));
+    if (step === 3) {
+      setSelectedDate("");
+      setSelectedTime("");
+      setStep(2);
+      return;
+    }
+
+    if (step === 2) {
+      setSelectedProfessional(null);
+      setStep(1);
+      return;
+    }
+
+    if (step === 1) {
+      setSelectedCenterId("");
+      resetFromCenter();
+      setStep(0);
+    }
   };
 
   const startOver = () => {
     setStep(0);
     setSelectedCenterId("");
-    setSelectedCenterName("");
     setSelectedSpecialty("");
     setSelectedProfessional(null);
     setSelectedDate("");
@@ -117,334 +258,235 @@ export default function BookingStepper() {
     setPatientForm({ nombre: "", dni: "", email: "" });
     setSearchQuery("");
     setShowSuggestions(false);
-    setStep1Mode("especialidad");
-    setStep1Query("");
   };
 
-  const selectCenter = (center: any) => {
-    setSelectedCenterId(center.id);
-    setSelectedCenterName(center.nombre);
-    setSelectedSpecialty("");
-    setSelectedProfessional(null);
-    setSelectedDate("");
-    setSelectedTime("");
-    setStep1Mode("especialidad");
-    setStep1Query("");
-    goToStep(1);
-  };
-
-  const handleGlobalSelection = (item: Suggestion) => {
-    if (item.type === "professional") {
-      const person = item.professional;
-      setSelectedCenterId(person.centerID);
-      setSelectedCenterName(person.centro_asociado);
-      setSelectedSpecialty(person.especialidad);
-      setSelectedProfessional(person);
-      setSelectedDate("");
-      setSelectedTime("");
-      setStep(3);
-      setStep1Mode("profesional");
-      setStep1Query(person.nombre);
-      setSearchQuery(person.nombre);
-      setShowSuggestions(false);
+  const confirmAppointment = () => {
+    if (!selectedProfessional || !selectedDateData || !selectedTime || !isFormValid) {
       return;
     }
-
-    const referenceProfessional = item.professional;
-    setSelectedCenterId(referenceProfessional.centerID);
-    setSelectedCenterName(referenceProfessional.centro_asociado);
-    setSelectedSpecialty(item.specialty);
-    setSelectedProfessional(null);
-    setSelectedDate("");
-    setSelectedTime("");
-    setStep(2);
-    setStep1Mode("especialidad");
-    setStep1Query(item.specialty);
-    setSearchQuery(item.specialty);
-    setShowSuggestions(false);
+    addAppointment({
+      id: `appt-${Date.now()}`,
+      doctor: selectedProfessional.nombre,
+      specialty: selectedProfessional.especialidad,
+      date: `${selectedDateData.etiqueta} a las ${selectedTime}`,
+      location: selectedProfessional.centro_asociado,
+      status: "Confirmado",
+    });
+    setShowModal(true);
   };
 
-  const stepMotion = {
-    initial: { opacity: 0, x: 24 },
+  const motionProps = {
+    initial: { opacity: 0, x: 16 },
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -24 },
-    transition: { duration: 0.28, ease: "easeOut" as const },
+    exit: { opacity: 0, x: -16 },
+    transition: { duration: 0.24, ease: "easeOut" as const },
   };
 
   return (
-    <AnimatePresence mode="wait">
-      {step === 0 && (
-        <motion.div key="centers" {...stepMotion}>
-          <h3 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Encontra tu atencion</h3>
-          <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">Busca por especialidad o profesional, o selecciona un centro para iniciar.</p>
+    <div className="relative flex h-full min-h-0 w-full flex-col gap-2">
+      <div className="w-full shrink-0 rounded-3xl border border-blue-100/80 bg-white/95 p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+        <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Dashboard de Reserva</h3>
+        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 xl:text-base">
+          Busca por profesional, especialidad o centro. El flujo avanza sin salir de esta pantalla.
+        </p>
 
-          <div className="mt-5 relative">
-            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onFocus={() => setShowSuggestions(true)}
-              onChange={(event) => {
-                setSearchQuery(event.target.value);
-                setShowSuggestions(true);
-              }}
-              className="w-full rounded-xl border border-gray-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 py-2.5 pl-9 pr-3 text-sm"
-              placeholder="Buscar especialidad o profesional..."
-            />
+        <div className="relative mt-2">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+          <input
+            value={searchQuery}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => {
+              window.setTimeout(() => setShowSuggestions(false), 120);
+            }}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setShowSuggestions(true);
+            }}
+            type="text"
+            className="h-12 w-full rounded-2xl border border-blue-200 bg-white py-2 pl-11 pr-3 text-sm text-slate-800 focus:border-blue-400 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 xl:text-base"
+            placeholder="Buscar profesional, especialidad o centro medico..."
+          />
 
-            {showSuggestions && searchQuery.trim().length > 0 && (
-              <div className="absolute z-20 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg">
-                {suggestions.length === 0 ? (
-                  <p className="px-3 py-2 text-sm text-gray-500 dark:text-slate-400">Sin resultados para tu busqueda.</p>
-                ) : (
-                  suggestions.map((item, index) => (
-                    <button
-                      key={`${item.type}-${index}`}
-                      type="button"
-                      onClick={() => handleGlobalSelection(item)}
-                      className="flex w-full items-center justify-between border-b border-gray-100 dark:border-slate-700 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-gray-50 dark:hover:bg-slate-800"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        {item.type === "professional" ? (
-                          <UserCircle2 className="h-4 w-4 text-blue-700" />
-                        ) : (
-                          <Stethoscope className="h-4 w-4 text-emerald-700" />
-                        )}
-                        <span className="text-gray-800 dark:text-slate-100">{item.type === "professional" ? item.professional.nombre : item.specialty}</span>
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{item.professional.centro_asociado}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+          {showSuggestions && searchQuery.trim().length > 0 && (
+            <div className="absolute z-40 mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+              {suggestions.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">Sin resultados para esta busqueda.</p>
+              ) : (
+                suggestions.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => handleUniversalSelect(item)}
+                    className="flex w-full items-center justify-between border-b border-slate-100 px-4 py-2 text-left hover:bg-blue-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                  >
+                    <span className="inline-flex items-center gap-2 text-sm xl:text-base">
+                      {item.type === "professional" && <UserCircle2 className="h-5 w-5 text-blue-600" />}
+                      {item.type === "specialty" && <Stethoscope className="h-5 w-5 text-emerald-600" />}
+                      {item.type === "center" && <Building2 className="h-5 w-5 text-indigo-600" />}
+                      <span className="font-medium text-slate-800 dark:text-slate-100">{item.label}</span>
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 xl:text-sm">{item.description}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-            {centers.map((center: any) => (
-              <button
-                key={center.id}
-                type="button"
-                onClick={() => selectCenter(center)}
-                className="rounded-xl border border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 dark:hover:bg-slate-800"
+      {step < 4 && (
+        <div className="shrink-0 flex flex-wrap gap-2">
+          {stepLabels.map((label, index) => {
+            const active = step === index;
+            const completed = step > index;
+            return (
+              <div
+                key={label}
+                className={`rounded-full px-3 py-1 text-xs font-semibold xl:text-sm ${
+                  completed
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    : active
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                }`}
               >
-                <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-700">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <p className="font-semibold text-blue-900 dark:text-blue-300">{center.nombre}</p>
-                <p className="mt-1 text-xs text-blue-700 dark:text-slate-300">{center.descripcion}</p>
-              </button>
-            ))}
-          </div>
-        </motion.div>
+                {index + 1}. {label}
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {step > 0 && (
-        <motion.div key={`step-${step}`} {...stepMotion}>
-          <div className="mb-6">
-            <h3 className="text-2xl font-semibold text-gray-900 dark:text-slate-100">Reserva de Turno</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-slate-300">Centro seleccionado: {selectedCenterName}</p>
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-              {stepLabels.map((label, index) => {
-                const active = step === index;
-                const completed = step > index;
-                return (
-                  <div key={label} className="text-center min-w-[84px]">
-                    <div
-                      className={`mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                        completed ? "bg-emerald-500 text-white" : active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {index}
+      <div className="min-h-0 w-full flex-1">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`flow-${step}`}
+            {...motionProps}
+            className="h-full max-h-[85vh] w-full overflow-hidden rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-[1500px] flex-col gap-2">
+          {step > 0 && step < 4 && (
+            <button
+              type="button"
+              onClick={goBack}
+              className="sticky top-2 z-20 mb-1 inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 xl:text-base"
+            >
+              <ArrowLeft className="h-4 w-4" /> Volver
+            </button>
+          )}
+
+          {step === 0 && (
+            <div className="h-full w-full">
+              <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 xl:text-2xl">Elegi tu centro medico</h4>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 xl:text-base">Primero selecciona un centro para activar el flujo de reserva.</p>
+
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                {centerList.map((center) => (
+                  <article
+                    key={center.id}
+                    className="group flex min-h-[150px] w-full flex-col justify-between rounded-3xl border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-4 shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:border-slate-700 dark:from-slate-900 dark:to-slate-900 xl:p-5"
+                  >
+                    <div>
+                      <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm transition-transform duration-300 group-hover:scale-105 xl:h-10 xl:w-10">
+                        <Building2 className="h-4 w-4 xl:h-5 xl:w-5" />
+                      </div>
+                      <p className="text-lg font-black leading-tight text-slate-900 dark:text-slate-100 xl:text-xl">{center.nombre}</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-300 xl:text-base">{center.descripcion}</p>
                     </div>
-                    <p className={`text-[10px] leading-tight ${active ? "text-blue-700 font-semibold" : "text-gray-500"}`}>{label}</p>
-                  </div>
-                );
-              })}
+                    <button
+                      type="button"
+                      onClick={() => selectCenter(center)}
+                      className="mt-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition-colors duration-300 hover:bg-blue-700 xl:px-5 xl:py-2.5 xl:text-base"
+                    >
+                      Seleccionar este centro
+                    </button>
+                  </article>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {step === 1 && (
-            <div className="space-y-4">
-              <div className="flex rounded-xl bg-gray-100 dark:bg-slate-900 p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep1Mode("especialidad");
-                    setStep1Query("");
-                    setSelectedProfessional(null);
-                  }}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
-                    step1Mode === "especialidad" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600"
-                  }`}
-                >
-                  Buscar por Especialidad
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep1Mode("profesional");
-                    setStep1Query("");
-                    setSelectedSpecialty("");
-                  }}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
-                    step1Mode === "profesional" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600"
-                  }`}
-                >
-                  Buscar por Profesional
-                </button>
-              </div>
+            <div className="w-full">
+              <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 xl:text-2xl">Especialidades disponibles</h4>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 xl:text-base">Centro activo: {selectedCenter?.nombre}</p>
 
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={step1Query}
-                  onChange={(event) => setStep1Query(event.target.value)}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 py-2.5 pl-9 pr-3 text-sm"
-                  placeholder={
-                    step1Mode === "especialidad" ? "Filtrar especialidad en este centro..." : "Filtrar profesional en este centro..."
-                  }
-                />
-              </div>
-
-              {step1Mode === "especialidad" ? (
-                <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900">
-                  {filteredSpecialtiesInCenter.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-gray-500 dark:text-slate-400">No hay especialidades para ese filtro.</p>
-                  ) : (
-                    filteredSpecialtiesInCenter.map((specialty: string) => (
-                      <button
-                        key={specialty}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSpecialty(specialty);
-                          setSelectedProfessional(null);
-                          setSelectedDate("");
-                          setSelectedTime("");
-                        }}
-                        className={`block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 ${
-                          selectedSpecialty === specialty ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {specialty}
-                      </button>
-                    ))
-                  )}
-                </div>
-              ) : (
-                <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-900">
-                  {filteredProfessionalsInCenter.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-gray-500 dark:text-slate-400">No hay profesionales para ese filtro.</p>
-                  ) : (
-                    filteredProfessionalsInCenter.map((person: any) => (
-                      <button
-                        key={person.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedProfessional(person);
-                          setSelectedSpecialty(person.especialidad);
-                          setSelectedDate("");
-                          setSelectedTime("");
-                        }}
-                        className={`w-full border-b border-gray-100 px-3 py-2 text-left last:border-b-0 ${
-                          selectedProfessional?.id === person.id ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <p className="text-sm font-semibold leading-tight">{person.nombre}</p>
-                        <p className="mt-0.5 text-xs font-medium text-blue-600/80">{person.especialidad}</p>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Volver
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToStep(step1Mode === "especialidad" ? 2 : 3)}
-                  disabled={step1Mode === "especialidad" ? !selectedSpecialty : !selectedProfessional}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Continuar
-                </button>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+                {specialtiesByCenter.map((item) => {
+                  const disabled = item.count === 0;
+                  return (
+                    <button
+                      key={item.specialty}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => selectSpecialty(item.specialty)}
+                      className={`rounded-3xl border p-3 text-left transition-all xl:p-4 ${
+                        disabled
+                          ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40"
+                          : "border-blue-200 bg-white hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <p className="text-lg font-black leading-tight xl:text-xl">{item.specialty}</p>
+                      <p className="mt-1 text-sm font-medium xl:text-sm">
+                        {item.count > 0 ? `${item.count} profesional(es) disponibles` : "Sin cobertura en este centro"}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-slate-300">Profesionales para {selectedSpecialty} en {selectedCenterName}.</p>
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+            <div className="w-full">
+              <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 xl:text-2xl">Profesionales de {selectedSpecialty}</h4>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 xl:text-base">Selecciona un profesional para pasar a fecha, hora y datos.</p>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {availableProfessionals.length === 0 ? (
-                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700">
-                    No hay profesionales en este centro para esa especialidad.
-                  </div>
+                  <p className="col-span-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                    No hay profesionales para esta especialidad en el centro seleccionado.
+                  </p>
                 ) : (
-                  availableProfessionals.map((person: any) => (
+                  availableProfessionals.map((professional) => (
                     <button
-                      key={person.id}
+                      key={professional.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedProfessional(person);
-                        setSelectedDate("");
-                        setSelectedTime("");
-                      }}
-                      className={`w-full min-h-[128px] rounded-xl border p-4 text-left transition-all ${
-                        selectedProfessional?.id === person.id ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"
-                      }`}
+                      onClick={() => selectProfessional(professional)}
+                      className="mx-auto flex w-full max-w-[380px] flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 xl:max-w-[420px] xl:p-5"
                     >
-                      <div className="flex items-start">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900">{person.nombre}</p>
-                          <p className="mt-1 text-sm font-medium text-blue-700/80">{person.especialidad}</p>
-                          <p className="mt-2 inline-flex items-center gap-1 text-xs text-gray-600">
-                            <Building2 className="h-3.5 w-3.5" /> {person.centro_asociado}
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">Matricula: {person.matricula}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-black text-slate-900 dark:text-slate-100 leading-tight xl:text-xl">{professional.nombre}</p>
+                          <p className="mt-1 text-sm font-semibold text-blue-700 dark:text-blue-300 xl:text-base">{professional.especialidad}</p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 xl:text-sm">{professional.centro_asociado}</p>
                         </div>
+                        <span className="rounded-full border border-blue-200 bg-slate-100 px-3 py-1.5 text-sm font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200 xl:px-4 xl:py-2 xl:text-base">
+                          {professional.matricula}
+                        </span>
                       </div>
                     </button>
                   ))
                 )}
               </div>
-              <div className="flex justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Volver
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToStep(3)}
-                  disabled={!selectedProfessional}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Continuar
-                </button>
-              </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-slate-300">Selecciona fecha y hora para {selectedProfessional?.nombre}.</p>
+            <div className="w-full space-y-3">
+              <div>
+                <h4 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 xl:text-2xl">Fecha, horario y datos</h4>
+                <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300 xl:text-base">
+                  {selectedProfessional?.nombre} - {selectedProfessional?.especialidad}
+                </p>
+              </div>
 
-              <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4">
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-slate-200">
-                  <CalendarDays className="h-4 w-4" /> Fecha
-                </label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {(selectedProfessional?.disponibilidad || []).map((day: any) => (
+              <section className="rounded-3xl border border-slate-200 p-3 dark:border-slate-700 xl:p-3">
+                <p className="mb-2 inline-flex items-center gap-2 text-base font-bold text-slate-700 dark:text-slate-200 xl:text-lg">
+                  <CalendarDays className="h-5 w-5" /> Calendario interactivo
+                </p>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {(selectedProfessional?.disponibilidad || []).map((day) => (
                     <button
                       key={day.fecha}
                       type="button"
@@ -452,154 +494,154 @@ export default function BookingStepper() {
                         setSelectedDate(day.fecha);
                         setSelectedTime("");
                       }}
-                      className={`shrink-0 rounded-lg border px-3 py-2 text-sm transition-all ${
-                        selectedDate === day.fecha ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 hover:bg-gray-50"
+                      className={`min-h-10 rounded-2xl border px-3 py-2 text-sm font-bold xl:min-h-10 xl:px-3 xl:py-2 xl:text-base ${
+                        selectedDate === day.fecha
+                          ? "border-blue-600 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                       }`}
                     >
                       {day.etiqueta}
                     </button>
                   ))}
                 </div>
-              </div>
+              </section>
 
-              <div className="rounded-xl border border-gray-200 dark:border-slate-700 p-4">
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-slate-200">
-                  <Clock3 className="h-4 w-4" /> Hora
-                </label>
-                <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
+              <section className="rounded-3xl border border-slate-200 p-3 dark:border-slate-700 xl:p-3">
+                <p className="mb-2 inline-flex items-center gap-2 text-base font-bold text-slate-700 dark:text-slate-200 xl:text-lg">
+                  <Clock3 className="h-5 w-5" /> Horarios disponibles
+                </p>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
                   {selectedDateData?.horarios?.length ? (
-                    selectedDateData.horarios.map((slot: string) => (
+                    selectedDateData.horarios.map((hour) => (
                       <button
-                        key={slot}
+                        key={hour}
                         type="button"
-                        onClick={() => setSelectedTime(slot)}
-                        className={`rounded-lg border px-2 py-1.5 text-sm transition-all ${
-                          selectedTime === slot ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 hover:bg-gray-50"
+                        onClick={() => setSelectedTime(hour)}
+                        className={`min-h-10 rounded-2xl border px-3 py-2 text-sm font-bold xl:min-h-10 xl:px-3 xl:py-2 xl:text-base ${
+                          selectedTime === hour
+                            ? "border-emerald-600 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : "border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                         }`}
                       >
-                        {slot}
+                        {hour}
                       </button>
                     ))
                   ) : (
-                    <p className="col-span-3 text-sm text-gray-500 dark:text-slate-400">Selecciona primero una fecha para ver horarios.</p>
+                    <p className="col-span-2 text-sm text-slate-500 dark:text-slate-400 md:col-span-4 xl:col-span-6 xl:text-base">
+                      Selecciona una fecha para ver los horarios.
+                    </p>
                   )}
                 </div>
-              </div>
+              </section>
 
-              {selectedDateData && selectedTime && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                  Turno preseleccionado: {selectedDateData.etiqueta} a las {selectedTime}
-                </div>
+              <AnimatePresence initial={false}>
+                {selectedTime && (
+                  <motion.section
+                    key="patient-form"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="space-y-3"
+                  >
+                    <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-2 md:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 xl:text-base">Nombre completo</label>
+                        <input
+                          type="text"
+                          value={patientForm.nombre}
+                          onChange={(event) => setPatientForm((current) => ({ ...current, nombre: event.target.value }))}
+                          className="h-10 w-full rounded-2xl border border-slate-300 bg-white px-3 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 xl:h-10 xl:px-3 xl:text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 xl:text-base">DNI</label>
+                        <input
+                          type="text"
+                          value={patientForm.dni}
+                          onChange={(event) => setPatientForm((current) => ({ ...current, dni: event.target.value }))}
+                          className="h-10 w-full rounded-2xl border border-slate-300 bg-white px-3 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 xl:h-10 xl:px-3 xl:text-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 xl:text-base">Correo electronico</label>
+                        <input
+                          type="email"
+                          value={patientForm.email}
+                          onChange={(event) => setPatientForm((current) => ({ ...current, email: event.target.value }))}
+                          className="h-10 w-full rounded-2xl border border-slate-300 bg-white px-3 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 xl:h-10 xl:px-3 xl:text-sm"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 xl:text-sm">Te enviaremos recordatorio por correo 24h antes.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <p className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300 xl:px-4 xl:py-2 xl:text-base">
+                        <UserRoundCheck className="h-4 w-4" />
+                        Turno: {selectedDateData?.etiqueta} a las {selectedTime}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={confirmAppointment}
+                        disabled={!selectedDateData || !selectedTime || !isFormValid}
+                        className="rounded-2xl bg-blue-600 px-6 py-2 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300 md:self-end xl:text-lg"
+                      >
+                        Confirmar turno
+                      </button>
+                    </div>
+                  </motion.section>
+                )}
+              </AnimatePresence>
+
+              {!selectedTime && (
+                <p className="text-sm text-slate-500 dark:text-slate-400 xl:text-base">
+                  Selecciona un horario para habilitar el formulario de datos y confirmar el turno.
+                </p>
               )}
-
-              <div className="flex justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Volver
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToStep(4)}
-                  disabled={!selectedDateData || !selectedTime}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Continuar
-                </button>
-              </div>
             </div>
           )}
 
-          {step === 4 && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-slate-300">Completa tus datos para confirmar el turno.</p>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">Nombre Completo</label>
-                <input
-                  type="text"
-                  value={patientForm.nombre}
-                  onChange={(event) => setPatientForm({ ...patientForm, nombre: event.target.value })}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">DNI</label>
-                <input
-                  type="number"
-                  value={patientForm.dni}
-                  onChange={(event) => setPatientForm({ ...patientForm, dni: event.target.value })}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200">Correo Electronico</label>
-                <input
-                  type="email"
-                  value={patientForm.email}
-                  onChange={(event) => setPatientForm({ ...patientForm, email: event.target.value })}
-                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 px-3 py-2 text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">Te enviaremos un recordatorio 24hs antes.</p>
-              </div>
-
-              <div className="flex justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <ArrowLeft className="mr-1 h-4 w-4" /> Volver
-                </button>
-                <button
-                  type="button"
-                  disabled={!isFormValid}
-                  onClick={() => {
-                    if (!selectedProfessional || !selectedDateData || !selectedTime) {
-                      return;
-                    }
-
-                    addAppointment({
-                      id: `appt-${Date.now()}`,
-                      doctor: selectedProfessional.nombre,
-                      specialty: selectedProfessional.especialidad,
-                      date: `${selectedDateData.etiqueta}, ${selectedTime} hs`,
-                      location: selectedProfessional.centro_asociado,
-                      status: "Confirmado",
-                    });
-
-                    setStep(5);
-                  }}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Confirmar Turno
-                </button>
+          {/* Modal de confirmación */}
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+              <div className="relative z-10 flex w-full max-w-2xl flex-col items-center rounded-3xl border-4 border-emerald-200 bg-white p-8 shadow-2xl dark:border-emerald-900 dark:bg-slate-900 xl:p-10">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="mb-3 flex items-center justify-center rounded-full bg-emerald-100 p-4 xl:p-5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-emerald-600 xl:h-20 xl:w-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <h2 className="mb-3 text-3xl font-black text-emerald-700 dark:text-emerald-300 xl:text-4xl">¡Turno Reservado con Éxito!</h2>
+                  <p className="mb-6 text-center text-lg text-slate-700 dark:text-slate-200 xl:text-2xl">
+                    Se ha reservado un turno para <span className="font-bold">{patientForm.nombre}</span> con el/la <span className="font-bold">{selectedProfessional?.nombre}</span> el día <span className="font-bold">{selectedDateData?.etiqueta}</span> a las <span className="font-bold">{selectedTime} hs</span>.
+                  </p>
+                  <div className="mt-2 flex gap-4">
+                    <button
+                      className="rounded-2xl bg-emerald-600 px-6 py-3 text-lg font-black text-white hover:bg-emerald-700 xl:px-8 xl:py-4 xl:text-2xl"
+                      onClick={() => {
+                        setShowModal(false);
+                        startOver();
+                      }}
+                    >
+                      Finalizar
+                    </button>
+                    <a
+                      href="/portal"
+                      className="flex items-center rounded-2xl bg-blue-600 px-6 py-3 text-lg font-black text-white hover:bg-blue-700 xl:px-8 xl:py-4 xl:text-2xl"
+                    >
+                      Ver mis turnos
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           )}
-
-          {step === 5 && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-              <h4 className="text-lg font-semibold text-emerald-800">Turno confirmado</h4>
-              <p className="mt-2 text-sm text-emerald-700">
-                Turno confirmado. Dr. {selectedProfessional?.nombre} - {selectedDateData?.etiqueta} a las {selectedTime}. Se envio un
-                comprobante a {patientForm.email}.
-              </p>
-              <button
-                type="button"
-                onClick={startOver}
-                className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
-              >
-                Nueva reserva
-              </button>
             </div>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
